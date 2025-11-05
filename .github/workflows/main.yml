@@ -1,38 +1,69 @@
-# .github/workflows/main.yml
-name: 抱抱脸空间状态检查与自动构建
+# .github/workflows/space-helper.yml
+name: HF Spaces Helper
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '0 */4 * * *'  # 每4小时运行一次
+
+permissions:
+  contents: write
 
 jobs:
   check_and_rebuild:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    env:
-      USERNAME: ${{ vars.USERNAME }}
-      SPACE_LIST: ${{ vars.SPACE_LIST }}
-      HF_TOKEN: ${{ secrets.HF_TOKEN }} # 可选；仅重建时需要
-      GLOBAL_TIMEOUT_SECONDS: 1800
-      WAKEUP_WAIT_SECONDS: 240
-      BETWEEN_REQUESTS_SECONDS: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
 
-      - run: pip install requests pytz
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir requests pytz
 
-      - name: 运行脚本
+      - name: Export env (secrets first, fallback to vars)
+        run: |
+          # USERNAME / SPACE_LIST：优先 secrets，缺省回落到 vars
+          if [ -n "${{ secrets.USERNAME }}" ]; then
+            echo "USERNAME=${{ secrets.USERNAME }}" >> "$GITHUB_ENV"
+          else
+            echo "USERNAME=${{ vars.USERNAME }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ secrets.SPACE_LIST }}" ]; then
+            echo "SPACE_LIST=${{ secrets.SPACE_LIST }}" >> "$GITHUB_ENV"
+          else
+            echo "SPACE_LIST=${{ vars.SPACE_LIST }}" >> "$GITHUB_ENV"
+          fi
+          # HF_TOKEN 可选，仅重建需要（建议放 secrets）
+          if [ -n "${{ secrets.HF_TOKEN }}" ]; then
+            echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> "$GITHUB_ENV"
+          fi
+          # 可选参数（若在 vars 里配置则导出）
+          if [ -n "${{ vars.GLOBAL_TIMEOUT_SECONDS }}" ]; then
+            echo "GLOBAL_TIMEOUT_SECONDS=${{ vars.GLOBAL_TIMEOUT_SECONDS }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.WAKEUP_WAIT_SECONDS }}" ]; then
+            echo "WAKEUP_WAIT_SECONDS=${{ vars.WAKEUP_WAIT_SECONDS }}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${{ vars.BETWEEN_REQUESTS_SECONDS }}" ]; then
+            echo "BETWEEN_REQUESTS_SECONDS=${{ vars.BETWEEN_REQUESTS_SECONDS }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run script
+        id: run_script
         run: python run.py
+        continue-on-error: true  # 即使脚本返回 1，也继续后续提交报告
 
-      - name: 提交报告
+      - name: Commit report
         if: always()
         run: |
           git config --global user.name 'github-actions[bot]'
@@ -41,6 +72,13 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "更新空间状态报告"
+            git commit -m "更新空间状态报告 $(date -u '+%Y-%m-%d %H:%M:%SZ')"
             git push
           fi
+
+      - name: Set job failure if script reported failure
+        # 脚本可能把 exit_code 写入 GITHUB_OUTPUT；或者步骤 outcome 为 failure
+        if: ${{ steps.run_script.outcome == 'failure' || steps.run_script.outputs.exit_code == '1' }}
+        run: |
+          echo "Spaces check reported failure."
+          exit 1

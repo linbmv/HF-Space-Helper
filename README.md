@@ -1,3 +1,20 @@
+# HF Space 状态报告
+
+- 最近更新: 2025-11-05 16:12:25
+- 说明: RUNNING=运行中，WAKING_UP=唤醒中，ERROR=错误触发重建
+
+| Space | 动作 | 状态 | 成功 | 耗时 | 备注 |
+|---|---|---|---:|---:|---|
+| aifreeforever2a | 重建 | RUNNING | ✅ | 124.4s |  |
+| googletranslate | 保活 | WAKING_UP | ✅ | 241.0s |  |
+| linuxdon2a | 保活 | WAKING_UP | ✅ | 240.8s |  |
+| linuxdow2a | 保活 | WAKING_UP | ✅ | 240.8s |  |
+| CLIProxyAPI | 保活 | WAKING_UP | ✅ | 241.8s |  |
+| mh | 保活 | WAKING_UP | ✅ | 241.0s |  |
+| xs | 保活 | WAKING_UP | ✅ | 240.8s |  |
+
+---
+
 # Hugging Face空间状态历史记录
 
 | 日期 

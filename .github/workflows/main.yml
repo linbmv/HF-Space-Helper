@@ -4,7 +4,7 @@ name: HF Spaces Helper
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */4 * * *'  # 每4小时
+    - cron: '0 */4 * * *'
 
 permissions:
   contents: write
@@ -13,7 +13,7 @@ jobs:
   check_and_rebuild:
     runs-on: ubuntu-latest
 
-    # 这里合并 secrets 与 vars（secrets 优先）
+    # secrets 优先，回落到 vars
     env:
       USERNAME: ${{ secrets.USERNAME || vars.USERNAME }}
       SPACE_LIST: ${{ secrets.SPACE_LIST || vars.SPACE_LIST }}
@@ -32,7 +32,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
+          # 注意：不再使用 cache: pip（仓库无 requirements/pyproject）
 
       - name: Install dependencies
         run: |
@@ -51,7 +51,6 @@ jobs:
       - name: Run script
         id: run_script
         run: python run.py
-        # 即使脚本返回 1，也继续提交报告
         continue-on-error: true
 
       - name: Commit report
